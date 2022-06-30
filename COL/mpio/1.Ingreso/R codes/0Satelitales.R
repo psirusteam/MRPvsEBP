@@ -27,7 +27,7 @@ library(magrittr)
 ### Loading datasets: EH and Population census ###
 ####################################################
 tasa_desocupacion <-
-  readRDS("COL/2019/1.Ingreso/Data/tasa_desocupacion.rds")
+  readRDS("COL/mpio/1.Ingreso/Data/tasa_desocupacion.rds")
 
 
 #######################################
@@ -48,10 +48,9 @@ rgee::ee_Initialize(drive = T)
 
 ## revisando COLivia
 COL <-
-  read_sf("COL/ShapeDeptoCOL/depto.shp") %>%
-  rename(depto = DPTO) %>%
-  mutate(depto = str_pad(depto, pad = "0", width = 2),
-         nombre = NOMBRE_DPT)
+  read_sf("COL/mpio/ShapeDeptoCOL/dv_Municipio.shp") %>%
+  rename(mpio = COD_DANE) %>%
+  mutate(mpio = str_pad(mpio, pad = "0", width = 5))
 ###################
 ### Luminosidad ###
 ###################
@@ -62,13 +61,16 @@ luces = ee$ImageCollection("NOAA/DMSP-OLS/NIGHTTIME_LIGHTS") %>%
   ee$ImageCollection$toBands()
 ee_print(luces)
 
-COL_luces <- ee_extract(
+
+mpio <- COL %>% data.frame() %>% distinct(mpio)
+COL_luces <- map(mpio$mpio,function(ii){
+  ee_extract(
   x = luces,
-  y = COL["depto"],
+  y = COL["mpio"] %>% filter(mpio == ii),
   ee$Reducer$mean(),
   sf = FALSE
-)
-
+)})
+COL_luces %<>% bind_rows()
 #################
 ### Urbanismo ###
 #################
@@ -79,12 +81,16 @@ tiposuelo = ee$ImageCollection("COPERNICUS/Landcover/100m/Proba-V-C3/Global") %>
   ee$ImageCollection$toBands()
 ee_print(tiposuelo)
 
-COL_urbano_cultivo <- ee_extract(
+COL_urbano_cultivo <- map(mpio$mpio,
+                          function(ii){
+    cat(ii,"\n")
+  ee_extract(
                    x = tiposuelo,
-                   y = COL["depto"],
+                   y = COL["mpio"] %>% filter(mpio == ii ),
                    ee$Reducer$mean(),
                    sf = FALSE
-                 ) 
+                 )}) 
+COL_urbano_cultivo %<>% bind_rows()
 ###############
 ### Guardar ###
 ###############
@@ -93,7 +99,10 @@ tasa_desocupacion %<>%
   full_join(COL_luces) %>% 
   full_join(COL_urbano_cultivo)
 
+tasa_desocupacion %>% filter(is.na(tasa_desocupacion))
+
 cor(tasa_desocupacion[, -1 ])
 
-saveRDS(tasa_desocupacion, "COL/2019/1.Ingreso/Data/tasa_desocupacion.rds")
-
+saveRDS(tasa_desocupacion, "COL/mpio/1.Ingreso/Data/tasa_desocupacion.rds")
+saveRDS(tasa_desocupacion, "COL/mpio/2.Pobreza/Data/tasa_desocupacion.rds")
+saveRDS(tasa_desocupacion, "COL/mpio/3.PobrezaExtrema/Data/tasa_desocupacion.rds")

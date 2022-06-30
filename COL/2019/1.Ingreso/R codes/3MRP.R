@@ -81,23 +81,28 @@ fit <- stan_lmer(
   weights = n
 )
 
-print(fit)
-sum(predict(fit, type = "response")<0)
-predict(fit, type = "response")[predict(fit, type = "response")<0]
-
-sum(encuesta_df_agg$n,na.rm = TRUE)
-
-sum(predict(fit, type = "response")*encuesta_df_agg$n)/1000000
-
-inner_join(statelevel_predictors_df,encuesta_mrp) %>% ungroup() %>% 
-  summarise(sum(ingreso)/1000000)
+saveRDS(fit, 
+        file = "COL/2019/1.Ingreso/Data/fit_bayes_mrp_logshift.rds")
 
 
-#--- Exporting Bayesian Multilevel Model Results ---#
 
-saveRDS(list(fit, logs = NULL), 
-        file = "COL/2019/1.Ingreso/Data/fit_mrp_logshift.rds")
+fit_freq <- lmer(
+  ingreso ~ (1 | depto) +
+    (1 | edad) +
+    (1 | area) +
+    (1 | anoest) +
+    (1 | etnia) +
+    sexo  +
+    tasa_desocupacion +
+    F182013_stable_lights +
+    X2016_crops.coverfraction +
+    X2016_urban.coverfraction  ,
+  data = encuesta_df_agg,
+  weights = n
+)
 
+saveRDS(fit_freq, 
+        file = "COL/2019/1.Ingreso/Data/fit_freq_mrp_logshift.rds")
 # Assessment of the model -------------------------------------------------
 
 # Graphical posterior predictive checks -----------------------------------

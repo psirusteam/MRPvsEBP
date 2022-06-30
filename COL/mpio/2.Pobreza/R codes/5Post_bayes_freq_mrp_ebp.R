@@ -37,17 +37,19 @@ source("0Funciones/funciones_mrp.R", encoding = "UTF-8")
 
 # Loading data ------------------------------------------------------------
 
-encuesta_mrp <- readRDS("COL/2019/2.Pobreza/Data/encuesta_mrp.rds")
-poststrat_df <- readRDS("COL/2019/2.Pobreza/Data/poststrat_df.RDS") %>% 
-  filter(anoest != "99")
-fit_bayes_mrp <- readRDS("COL/2019/2.Pobreza/Data/fit_mrp_logit.rds")
-fit_bayes_ebp <- readRDS("COL/2019/2.Pobreza/Data/fit_ebp_logit.rds")
+encuesta_mrp <- readRDS("COL/mpio/2.Pobreza/Data/encuesta_mrp.rds")
+poststrat_df <- readRDS("COL/mpio/2.Pobreza/Data/poststrat_df.RDS") %>% 
+  filter(anoest != "99") %>%  drop_na()
+
+
+fit_bayes_mrp <- readRDS("COL/mpio/2.Pobreza/Data/fit_mrp_logit.rds")
+fit_bayes_ebp <- readRDS("COL/mpio/2.Pobreza/Data/fit_ebp_logit.rds")
 
 # Poststratification at the National Level --------------------------------
 
 byAgrega <-
   grep(
-    pattern =  "^(X|F|.groups|n|pobreza|ingreso|tasa_desocupacion|epred_mat|gk|depto|lp)",
+    pattern =  "^(X|F|.groups|n|pobreza|ingreso|tasa_desocupacion|epred_mat|gk|mpio|lp)",
     x = names(poststrat_df),
     invert = TRUE,
     value = TRUE
@@ -83,18 +85,18 @@ length(epred_mat_ebp[which(epred_mat_ebp == 0)])
 
 byAgrega <-
   grep(
-    pattern = "depto",
+    pattern = "mpio",
     x = byAgrega,
     value = TRUE,
     invert = TRUE
   )
 
 byAgrega <- t(combn(byAgrega, 2))
-byAgrega <- rbind(c("depto","depto" ), byAgrega)
+byAgrega <- rbind(c("mpio","mpio" ), byAgrega)
 # resultados para ingreso medio
 
 freq_estimate = map(1:nrow(byAgrega),
-             ~poststrat_df %>% group_by_at(vars("depto", byAgrega[.x,])) %>%
+             ~poststrat_df %>% group_by_at(vars("mpio", byAgrega[.x,])) %>%
                summarise(
                  estimate_mrp_freq = sum(n * pobreza_mrp) / sum(n),
                  estimate_ebp_freq = sum(n * pobreza_ebp, na.rm = TRUE) / sum(n), 
@@ -105,7 +107,7 @@ freq_estimate = map(1:nrow(byAgrega),
 mrp_ECM <- map(1:nrow(byAgrega), function(i) {
      Aux_Agregado(poststrat_df,
                  epredmat = epred_mat_mrp,
-                 byMap = c("depto", byAgrega[i, ])) %>% 
+                 byMap = c("mpio", byAgrega[i, ])) %>% 
     rename( estimate_mrp_bayes = mrp_estimate, 
             estimate_mrp_bayes_se = mrp_estimate_se)
 
@@ -114,7 +116,7 @@ mrp_ECM <- map(1:nrow(byAgrega), function(i) {
 ebp_ECM <- map(1:nrow(byAgrega), function(i) {
   Aux_Agregado(poststrat_df,
                epredmat = epred_mat_ebp,
-               byMap = c("depto", byAgrega[i, ])) %>% 
+               byMap = c("mpio", byAgrega[i, ])) %>% 
     rename( estimate_ebp_bayes = mrp_estimate, 
             estimate_ebp_bayes_se = mrp_estimate_se)
   
@@ -122,17 +124,17 @@ ebp_ECM <- map(1:nrow(byAgrega), function(i) {
 
 
 
-tablas <- map2(freq_estimate, mrp_ECM, inner_join) %>% 
-  map2(.y = ebp_ECM,inner_join)
+tablas <- map2(freq_estimate, ebp_ECM, inner_join) %>% 
+            map2(.x = ., .y = mrp_ECM, inner_join)
   
-nom_tabs <- c("depto", apply(byAgrega[-1,],MARGIN = 1,paste0, collapse = "_"))
+nom_tabs <- c("mpio", apply(byAgrega[-1,],MARGIN = 1,paste0, collapse = "_"))
 names(tablas) <- nom_tabs
 
 
 openxlsx::write.xlsx(tablas, 
-                     file = "COL/2019/2.Pobreza/Output/tablas_estimados.xlsx", 
+                     file = "COL/mpio/2.Pobreza/Output/tablas_estimados.xlsx", 
                      overwrite = TRUE)
 
 saveRDS(tablas, 
-        "COL/2019/2.Pobreza/Data/tablas_estimados.rds")
+        "COL/mpio/2.Pobreza/Data/tablas_estimados.rds")
 

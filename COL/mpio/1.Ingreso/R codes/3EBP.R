@@ -15,12 +15,12 @@ library(nortest)
 library(lme4)
 library(tidyverse)
 library(magrittr)
-library(rstanarm)a
+library(rstanarm)
 
 # Loading data ------------------------------------------------------------
 memory.limit(10000000000000)
-encuesta_mrp <- readRDS("COL/2019/1.Ingreso/Data/encuesta_mrp.rds")
-tasa_desocupados <- readRDS("COL/2019/1.Ingreso/Data/tasa_desocupacion.rds")
+encuesta_mrp <- readRDS("COL/mpio/1.Ingreso/Data/encuesta_mrp.rds")
+tasa_desocupados <- readRDS("COL/mpio/1.Ingreso/Data/tasa_desocupacion.rds")
 
 ############################
 # Log-shift Transformation #
@@ -61,13 +61,14 @@ encuesta_df_agg <-
             .groups = "drop") 
 
 
-encuesta_df_agg <- inner_join(encuesta_df_agg, statelevel_predictors_df, by = "depto")
+encuesta_df_agg <- inner_join(encuesta_df_agg, statelevel_predictors_df, 
+                              by = "mpio")
 
 # summary(encuesta_df$ingreso2)
 #--- Fit in stan_glmer ---#
-
+options(mc.cores = parallel::detectCores())
 fit <- stan_lmer(
-  ingreso ~ (1 | depto) +
+  ingreso ~ (1 | mpio) +
     edad +
     area +
     anoest +
@@ -78,7 +79,9 @@ fit <- stan_lmer(
     X2016_crops.coverfraction +
     X2016_urban.coverfraction  ,
   data = encuesta_df_agg,
-  weights = n
+  weights = n,
+  iter = 400,
+  verbose = FALSE
 )
 
 
@@ -97,8 +100,28 @@ inner_join(statelevel_predictors_df,encuesta_mrp) %>% ungroup() %>%
 
 #--- Exporting Bayesian Multilevel Model Results ---#
 
-saveRDS(list(fit, logs = NULL), 
-        file = "COL/2019/1.Ingreso/Data/fit_EBP_logshift.rds")
+saveRDS(fit, 
+        file = "COL/mpio/1.Ingreso/Data/fit_EBP_logshift.rds")
+
+fit_freq <- lmer(
+  ingreso ~ (1 | mpio) +
+    edad +
+    area +
+    anoest +
+    etnia +
+    sexo  +
+    tasa_desocupacion +
+    F182013_stable_lights +
+    X2016_crops.coverfraction +
+    X2016_urban.coverfraction  ,
+  data = encuesta_df_agg,
+  weights = n)
+
+saveRDS(fit_freq, 
+        file = "COL/mpio/1.Ingreso/Data/fit_freq_EBP_logshift.rds")
+
+
+
 
 # Assessment of the model -------------------------------------------------
 

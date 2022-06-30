@@ -9,17 +9,17 @@ rm(list =ls())
 # Loading required libraries ----------------------------------------------
 
 library(patchwork)
-library(trafo)
+#library(trafo)
 library(normtest)
-library(nortest)
+#library(nortest)
 library(lme4)
 library(tidyverse)
 library(magrittr)
 library(rstanarm)
 # Loading data ------------------------------------------------------------
 memory.limit(10000000000000)
-encuesta_mrp <- readRDS("COL/2019/1.Ingreso/Data/encuesta_mrp.rds")
-tasa_desocupados <- readRDS("COL/2019/1.Ingreso/Data/tasa_desocupacion.rds")
+encuesta_mrp <- readRDS("COL/mpio/1.Ingreso/Data/encuesta_mrp.rds")
+tasa_desocupados <- readRDS("COL/mpio/1.Ingreso/Data/tasa_desocupacion.rds")
 
 ############################
 # Log-shift Transformation #
@@ -60,14 +60,39 @@ encuesta_df_agg <-
             .groups = "drop") 
 
 
-encuesta_df_agg <- inner_join(encuesta_df_agg, statelevel_predictors_df, by = "depto")
+encuesta_df_agg <- inner_join(encuesta_df_agg, statelevel_predictors_df,
+                              by = "mpio")
 
 # summary(encuesta_df$ingreso2)
 #--- Fit in stan_glmer ---#
 
+options(mc.cores = parallel::detectCores())
+fit_mrp <- stan_lmer(
+  ingreso ~ (1 | mpio) +
+    (1 | edad) +
+    (1 | area) +
+    (1 | anoest) +
+    (1 | etnia) +
+    sexo  +
+    tasa_desocupacion +
+    F182013_stable_lights +
+    X2016_crops.coverfraction +
+    X2016_urban.coverfraction  ,
+  data = encuesta_df_agg,
+  weights = n,
+  cores = 7,
+  iter = 400
+)
 
-fit <- stan_lmer(
-  ingreso ~ (1 | depto) +
+
+
+#--- Exporting Bayesian Multilevel Model Results ---#
+
+saveRDS(fit_mrp, 
+        file = "COL/mpio/1.Ingreso/Data/fit_mrp_logshift.rds")
+
+fit_mrp_freq <- lmer(
+  ingreso ~ (1 | mpio) +
     (1 | edad) +
     (1 | area) +
     (1 | anoest) +
@@ -81,34 +106,22 @@ fit <- stan_lmer(
   weights = n
 )
 
-print(fit)
-sum(predict(fit, type = "response")<0)
-predict(fit, type = "response")[predict(fit, type = "response")<0]
+saveRDS(fit_mrp_freq, 
+        file = "COL/mpio/1.Ingreso/Data/fit_freq_mrp_logshift.rds")
 
-sum(encuesta_df_agg$n,na.rm = TRUE)
-
-sum(predict(fit, type = "response")*encuesta_df_agg$n)/1000000
-
-inner_join(statelevel_predictors_df,encuesta_mrp) %>% ungroup() %>% 
-  summarise(sum(ingreso)/1000000)
-
-
-#--- Exporting Bayesian Multilevel Model Results ---#
-
-saveRDS(list(fit, logs = NULL), 
-        file = "COL/2019/1.Ingreso/Data/fit_mrp_logshift.rds")
 
 # Assessment of the model -------------------------------------------------
 
 # Graphical posterior predictive checks -----------------------------------
 ## Regresando a la escala original los ingresos
 
-# new_encuesta <- encuesta_mrp %>% inner_join(statelevel_predictors_df, by = "depto")
-# y_sam<- new_encuesta$ingreso
-# y_pred <- predict(fit, newdata = new_encuesta)
+new_encuesta <- encuesta_mrp %>% inner_join(statelevel_predictors_df,
+                                            by = "mpio")
+y_sam<- new_encuesta$ingreso
+y_pred <- posterior_predict(fit_mrp, newdata = new_encuesta)
 
-# new_encuesta %<>% mutate(y_pred = y_pred,
-#                          ingresolp = y_sam)
+new_encuesta %<>% mutate(y_pred = colMeans(y_pred),
+                         ingresolp = y_sam)
 
 # names_cov <-
 #   grep(
@@ -134,11 +147,11 @@ saveRDS(list(fit, logs = NULL),
 #         dif = (media_ingresolp-media_ingreso_pred)/media_ingresolp
 #       ))
 
-# ggplot(data.frame(datos = c(y_sam, y_pred),
-#                   repe = gl(2, length(y_sam), 
-#                             labels = c("muestra", "predicción"))), 
-#        aes(x = datos, fill = repe, alpha = 0.1)) +
-#   geom_density() 
+ggplot(data.frame(datos = c(y_sam, colMeans(y_pred)),
+                  repe = gl(2, length(y_sam),
+                            labels = c("muestra", "predicción"))),
+       aes(x = datos, fill = repe, alpha = 0.1)) +
+  geom_density()
 
 
 

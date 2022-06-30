@@ -18,20 +18,22 @@ library(DataExplorer)
 
 ### leer diccionario de CELADE
 
-Colombia <- redatam.open("COL/2019/1.Ingreso/Data/cpv2018col-cde.dicx")
+Colombia <- redatam.open("COL/mpio/1.Ingreso/Data/cpv2018col-cde.dicx")
 
+redatam.entities(Colombia)
+redatam.variables(Colombia, "MUPIO")
 
 CONTEOS <- redatam.query(Colombia,
-                      "freq DEPTO.REDCODEN
+                      "freq MUPIO.REDCODEN
                       by CLASE.AREA
                       by PERSONA.P_SEXO
                       by PERSONA.P_EDAD
                       by PERSONA.PBLOPER
                       by PERSONA.ANEST",
                       tot.omit = FALSE)
-saveRDS(CONTEOS, file = "COL/2019/1.Ingreso/Data/CONTEOS.RDS")
+saveRDS(CONTEOS, file = "COL/mpio/1.Ingreso/Data/CONTEOS.RDS")
 rm("$table1")
-#CONTEOS <- readRDS( file = "COL/2019/1.Ingreso/Data/CONTEOS.RDS")
+#CONTEOS <- readRDS( file = "COL/mpio/1.Ingreso/Data/CONTEOS.RDS")
 #   revisando valores unicos.
 map(grep(pattern = "_value", x = names(CONTEOS),value = TRUE),
     function(by){
@@ -60,7 +62,7 @@ map(grep(pattern = "_label", x = names(CONTEOS2),value = TRUE),
 
 # Se filtra para mayores de 4 años por las variables NAS en idioma
 censo_mrp <- CONTEOS2 %>%
-  transmute(depto =str_pad(string = REDCODEN1_value, width = 2, pad = "0"),
+  transmute(mpio =str_pad(string = REDCODEN1_value, width = 5, pad = "0"),
             area = case_when(AREA2_value == 1 ~ "1", # 1 = Urbana
                              TRUE ~ "0"),
             sexo = as.character(P_SEXO3_value),
@@ -85,14 +87,14 @@ censo_mrp <- CONTEOS2 %>%
               TRUE ~ "Error"
             ),
             value) %>%
-  group_by(depto, area, sexo, edad, etnia, anoest, .groups = "drop") %>%
-  summarise(n = sum(value))
+  group_by(mpio, area, sexo, edad, etnia, anoest) %>%
+  summarise(n = sum(value), .groups = "drop")
 
 # Suma del total nacional
 sum(censo_mrp$n)
 
 # agregados por nuevas variables
-map(c("depto", "area", "etnia", "sexo", "edad", "anoest"),
+map(c("mpio", "area", "etnia", "sexo", "edad", "anoest"),
     function(x) {
       censo_mrp %>% group_by_at(x) %>%
         summarise(n = sum(n)) %>%
@@ -103,10 +105,10 @@ plot_intro(censo_mrp)
 plot_missing(censo_mrp)
 plot_bar(censo_mrp, with = "n")
 
-saveRDS(censo_mrp, "COL/2019/1.Ingreso/Data/censo_mrp.rds")
+saveRDS(censo_mrp, "COL/mpio/1.Ingreso/Data/censo_mrp.rds")
 
 OCUPACION <- redatam.query(Colombia,
-                           "freq DEPTO.REDCODEN by PERSONA.PET",
+                           "freq MUPIO.REDCODEN by PERSONA.PET",
                            tot.omit = FALSE)
 
 OCUPACION2 <- OCUPACION %>%
@@ -118,15 +120,15 @@ group_by(OCUPACION2, PET2_value, PET2_label) %>% summarise(n = sum(value))
 
 
 OCUPACION2 <- OCUPACION2 %>% transmute(
-  depto = str_pad(
+  mpio = str_pad(
     string = REDCODEN1_value,
-    width = 2,
+    width = 5,
     pad = "0"
   ),
   ocupados = ifelse(PET2_value %in% c(1), 1, 0),
   desocupados = ifelse(PET2_value %in% c(2), 1, 0),
   value
-) %>% group_by(depto, ocupados, desocupados) %>%
+) %>% group_by(mpio, ocupados, desocupados) %>%
   summarise(value = sum(value))
 
 
@@ -139,20 +141,8 @@ tabla <-
   )
 
 tasa_desocupacion <- tabla %>%
-  transmute(depto,
+  transmute(mpio,
             tasa_desocupacion = ocupados0_1/sum(ocupados0_1 + ocupados1_0 ))
 
-saveRDS(tasa_desocupacion, "COL/2019/1.Ingreso/Data/tasa_desocupacion.rds")
-saveRDS(tasa_desocupacion, "COL/2019/2.Pobreza/Data/tasa_desocupacion.rds")
-saveRDS(tasa_desocupacion, "COL/2019/3.PobrezaExtrema/Data/tasa_desocupacion.rds")
+saveRDS(tasa_desocupacion, "COL/mpio/1.Ingreso/Data/tasa_desocupacion.rds")
 
-
-## Leer encuesta
-# depto <- read_dta("Z:/BG/col19n1/col19n1.dta")
-# %>% select(depto)
-encuesta <- read_dta("Z:/BC/COL_2019N1.dta") %>%
-  mutate(depto = dpto)
-
-table(encuesta$depto, useNA = "a")
-## Guardar encuesta
-saveRDS(encuesta, "COL/2019/1.Ingreso/Data/encuestaCOL19N1.rds")

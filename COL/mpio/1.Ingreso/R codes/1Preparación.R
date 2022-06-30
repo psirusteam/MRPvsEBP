@@ -16,23 +16,23 @@ memory.limit(500000)
 
 library(tidyverse)
 library(sampling)
-
+select <- dplyr::select
 ####################################################
 ### Loading datasets: CASEN and Population census ###
 ####################################################
-encuesta <- readRDS("COL/2019/1.Ingreso/Data/encuestaCOL19N1.rds")
-censo_mrp <- readRDS( "COL/2019/1.Ingreso/Data/censo_mrp.rds")
+encuesta <- readRDS("COL/mpio/1.Ingreso/Data/encuesta2018.rds")
+censo_mrp <- readRDS( "COL/mpio/1.Ingreso/Data/censo_mrp.rds")
 
 ##############################
 ### Exploratory statistics ###
 ##############################
-encuesta %>% group_by(depto) %>%
+encuesta %>% group_by(mpio) %>%
   summarise(
     "Ingreso medio" = mean(ingcorte / lp),
     "Pobreza_lp" = mean(ingcorte < lp),
     "Pobreza_li" = mean(ingcorte < li),
     n = n(),
-    Nhat = sum(`_fep`),.groups = "drop") %>% mutate(N = sum(n)) %>% 
+    Nhat = sum(`fep`),.groups = "drop") %>% mutate(N = sum(n)) %>% 
   View()
 
 ### GEIH: Searching for NA in the response and pre post-stratification ###
@@ -63,11 +63,7 @@ encuesta %>% group_by(depto) %>%
 
 encuesta_mrp <- encuesta %>%
   transmute(
-    depto = str_pad(
-      string = depto,
-      width = 2,
-      pad = "0"
-    ),
+    mpio,
     ingreso = ingcorte, lp, li,
     
     area = case_when(areageo2 == 1 ~ "1",
@@ -95,16 +91,16 @@ encuesta_mrp <- encuesta %>%
       edad < 45 ~ "3",
       edad < 65 ~ "4",
       edad >= 65 ~ "5"),
-    fep = `_fep`
+    fep 
   )
 
 plot_intro(encuesta_mrp)
 plot_missing(encuesta_mrp)
 plot_bar(encuesta_mrp)
 
-saveRDS(encuesta_mrp, file = "COL/2019/1.Ingreso/Data/encuesta_mrp.rds")
-saveRDS(encuesta_mrp, file = "COL/2019/2.Pobreza/Data/encuesta_mrp.rds")
-saveRDS(encuesta_mrp, file = "COL/2019/3.PobrezaExtrema/Data/encuesta_mrp.rds")
+saveRDS(encuesta_mrp, file = "COL/mpio/1.Ingreso/Data/encuesta_mrp.rds")
+saveRDS(encuesta_mrp, file = "COL/mpio/2.Pobreza/Data/encuesta_mrp.rds")
+saveRDS(encuesta_mrp, file = "COL/mpio/3.PobrezaExtrema/Data/encuesta_mrp.rds")
 
 # Actualización de tabla censal- IPFP -------------------------------------
 names_cov <-
@@ -142,7 +138,7 @@ censo_mrp %>% group_by(anoest) %>%
 
 
 auxSuma <- function(dat, col, ni){
-  dat %>% ungroup() %>% select(all_of(col))  %>%
+  dat %>% ungroup() %>% dplyr::select(all_of(col))  %>%
     fastDummies::dummy_cols(remove_selected_columns = TRUE) %>% 
     mutate_all(~.*ni) %>% colSums()  
 }
@@ -186,7 +182,7 @@ n1 <- ceiling(censo_mrp$n*gk)
 summary(n1)
 summary(censo_mrp$n)
 
-jpeg(filename = "COL/2019/1.Ingreso/Output/plot_actualizacion_censo1.jpeg",
+jpeg(filename = "COL/mpio/1.Ingreso/Output/plot_actualizacion_censo1.jpeg",
      width = 2000, height = 2000)
 plot(censo_mrp$n, n1)
 dev.off()
@@ -195,7 +191,7 @@ sum(round(censo_mrp$n))
 sum(n1)
 sum(encuesta_mrp$fep)
 
-jpeg(filename = "COL/2019/1.Ingreso/Output/plot_actualizacion_censo2.jpeg",
+jpeg(filename = "COL/mpio/1.Ingreso/Output/plot_actualizacion_censo2.jpeg",
      width = 2000, height = 2000)
 par(mfrow = c(2,2))
 hist(censo_mrp$n)
@@ -206,6 +202,6 @@ dev.off()
 
 censo_mrp$n <- n1
 
-saveRDS(censo_mrp, "COL/2019/1.Ingreso/Data/censo_mrp.rds")
-saveRDS(censo_mrp, "COL/2019/2.Pobreza/Data/censo_mrp.rds")
-saveRDS(censo_mrp, "COL/2019/3.PobrezaExtrema/Data/censo_mrp.rds")
+saveRDS(censo_mrp, "COL/mpio/1.Ingreso/Data/censo_mrp.rds")
+saveRDS(censo_mrp, "COL/mpio/2.Pobreza/Data/censo_mrp.rds")
+saveRDS(censo_mrp, "COL/mpio/3.PobrezaExtrema/Data/censo_mrp.rds")

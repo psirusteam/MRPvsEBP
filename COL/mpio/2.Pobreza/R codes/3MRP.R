@@ -20,9 +20,9 @@ theme_set(bayesplot::theme_default())
 
 # Loading data ------------------------------------------------------------
 
-encuesta_mrp <- readRDS("COL/2019/2.Pobreza/Data/encuesta_mrp.rds") %>% 
+encuesta_mrp <- readRDS("COL/mpio/2.Pobreza/Data/encuesta_mrp.rds") %>% 
   mutate(pobreza = ifelse(ingreso <= lp, 1, 0))
-tasa_desocupados <- readRDS("COL/2019/2.Pobreza/Data/tasa_desocupacion.rds")
+tasa_desocupados <- readRDS("COL/mpio/2.Pobreza/Data/tasa_desocupacion.rds")
 
 
 #--- Expand state-level predictors to the individual level ---#
@@ -44,11 +44,11 @@ encuesta_df_agg <-
             nopobres = n - pobres, .groups = "drop") 
 
 encuesta_df_agg %<>% inner_join(statelevel_predictors_df, 
-                         by = "depto") 
-
+                         by = "mpio") 
+options(mc.cores = parallel::detectCores())
 #--- Fit ---#
 fit <- stan_glmer(
-  cbind(pobres, nopobres) ~  (1 | depto) +
+  cbind(pobres, nopobres) ~  (1 | mpio) +
     (1 | edad) +
     (1 | area) +
     (1 | anoest) +
@@ -59,7 +59,9 @@ fit <- stan_glmer(
     X2016_crops.coverfraction +
     X2016_urban.coverfraction  ,
   family = binomial(link = "logit"),
-  data = encuesta_df_agg
+  data = encuesta_df_agg,
+  verbose = TRUE,
+  iter = 2000
 )
 
 sum(predict(fit, type = "response") * encuesta_df_agg$n)
@@ -68,10 +70,10 @@ sum(encuesta_df_agg$pobres)
 print(fit)
 #--- Exporting Bayesian Multilevel Model Results ---#
 
-saveRDS(fit, file = "COL/2019/2.Pobreza/Data/fit_mrp_logit.rds")
+saveRDS(fit, file = "COL/mpio/2.Pobreza/Data/fit_mrp_logit.rds")
 
 fit_freq <- glmer(
-  cbind(pobres, nopobres) ~  (1 | depto) +
+  cbind(pobres, nopobres) ~  (1 | mpio) +
     (1 | edad) +
     (1 | area) +
     (1 | anoest) +
@@ -85,11 +87,11 @@ fit_freq <- glmer(
   data = encuesta_df_agg
 )
 
-saveRDS(fit_freq, file = "COL/2019/2.Pobreza/Data/fit_freq_mrp_logit.rds")
+saveRDS(fit_freq, file = "COL/mpio/2.Pobreza/Data/fit_freq_mrp_logit.rds")
 
 #--- Exporting Bayesian Multilevel Model Results ---#
 
-fit <- readRDS(file = "COL/2019/2.Pobreza/Data/fit_mrp_logit.rds")
+fit <- readRDS(file = "COL/mpio/2.Pobreza/Data/fit_mrp_logit.rds")
 
 
 
@@ -98,7 +100,7 @@ fit <- readRDS(file = "COL/2019/2.Pobreza/Data/fit_mrp_logit.rds")
 # Graphical posterior predictive checks -----------------------------------
 ## Regresando a la escala original los ingresos
 
-# new_encuesta <- encuesta_mrp %>% inner_join(statelevel_predictors_df, by = "depto")
+# new_encuesta <- encuesta_mrp %>% inner_join(statelevel_predictors_df, by = "mpio")
 # y_sam<- new_encuesta$pobreza
 # y_pred <- predict(fit, newdata = new_encuesta, type = "response")
 
