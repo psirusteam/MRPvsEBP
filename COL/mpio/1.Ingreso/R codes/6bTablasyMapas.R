@@ -17,7 +17,8 @@ library(sf)
 library(tmap)
 library(RColorBrewer)
 library(maptools)
-
+library(survey)
+library(srvyr)
 
 source("0Funciones/funciones_mrp.R", encoding = "UTF-8")
 # Loading data ------------------------------------------------------------
@@ -40,10 +41,9 @@ brks_lp <- c(0, 1, 1.5, 2, 3, 5)
 tmap_options(check.and.fix = TRUE)
 Mapa_lp <-
   P1_ingresolp + 
-  tm_polygons(col = c("estimate_mrp_freq","estimate_ebp_freq",
-                      "estimate_mrp_bayes","estimate_ebp_bayes"),
+  tm_polygons(col = c("estimate_mrp_bayes","estimate_ebp_bayes"),
      breaks = brks_lp,
-    title = paste0("Pobreza ",c("MRP Freq", "EBP Freq", "MRP Bayes", "EBP Bayes")),
+    title = paste0("Income ",c("MRP Bayes", "EBP Bayes")),
     palette = "-YlOrRd",
     colorNA = "white" 
   ) + tm_layout( 
@@ -55,7 +55,7 @@ Mapa_lp <-
 
 tmap_save(
   Mapa_lp,
-  "COL/mpio/1.Ingreso/Output/Municipios2.pdf",
+  "COL/mpio/1.Ingreso/Output/MunicipiosIncome.pdf",
   width = 6920,
   height = 4080,
   asp = 0

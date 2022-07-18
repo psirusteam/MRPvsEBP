@@ -17,8 +17,8 @@ library(sf)
 library(tmap)
 library(RColorBrewer)
 library(maptools)
-
-
+library(survey)
+library(srvyr)
 source("0Funciones/funciones_mrp.R", encoding = "UTF-8")
 # Loading data ------------------------------------------------------------
 encuesta_mrp = readRDS("COL/mpio/2.Pobreza/Data/encuesta_mrp.rds")
@@ -49,7 +49,7 @@ Mapa_lp <-
   P1_ingresolp + 
   tm_polygons(col = "estimacion_dir",
      breaks = brks_lp,
-    title = "Pobreza Directa",
+    title = "Income",
     palette = "-YlOrRd",
     colorNA = "white" 
   ) +  tm_layout( 
@@ -61,7 +61,7 @@ Mapa_lp <-
 
 tmap_save(
   Mapa_lp,
-  "COL/mpio/1.Ingreso/Output/Estados_dir.pdf",
+  "COL/mpio/1.Ingreso/Output/MunicipiosIncomeDirect.pdf",
   width = 6920,
   height = 4080,
   asp = 0
