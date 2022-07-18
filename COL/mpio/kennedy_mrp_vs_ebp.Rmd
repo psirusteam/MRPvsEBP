@@ -1,0 +1,132 @@
+---
+title: "Comparing EBP and MRP"
+author: "Lauren Kennedy"
+date: '2022-07-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(bayesplot)
+library(rstanarm)
+library(tidyverse)
+library(readr)
+library(here)
+```
+
+
+
+# Estimating income
+
+```{r}
+fit_bayes_mrp_logshift <- readRDS(here("COL/2019/1.Ingreso/Data/fit_bayes_mrp_logshift.rds"))
+fit_bayes_ebp_logshift <- readRDS(here("COL/2019/1.Ingreso/Data/fit_bayes_EBP_logshift.rds"))
+```
+
+First let's look at the posterior predictive checks (which I know were done, but just as a starting point). For predictions within sample, MRP and EBP seem to produce highly similar estimates. 
+
+```{r}
+ebp_pred_samp <- posterior_epred(fit_bayes_ebp_logshift)
+y = fit_bayes_ebp_logshift$data$ingreso
+
+ppc_dens_overlay(y, ebp_pred_samp)
+```
+```{r}
+mrp_pred_samp <- posterior_epred(fit_bayes_mrp_logshift)
+y = fit_bayes_mrp_logshift$data$ingreso
+
+ppc_dens_overlay(y, mrp_pred_samp)
+```
+Almost identical predictive densities.
+
+What about the out of sample areas? Here we see a LOT more variation in the EBP model estimates than the MRP estimates. We also see the MRP predictions tend to be positive. 
+
+```{r}
+poststrat_df <- readRDS(here("COL/2019/1.Ingreso/Data/poststrat_df.RDS")) %>% 
+  filter(anoest != "99")
+
+oos_dept <- unique(poststrat_df$depto[!poststrat_df$depto %in% unique(fit_bayes_ebp_logshift$data$depto)])
+
+poststrat_df_oos <- poststrat_df %>%
+  filter(depto %in% oos_dept)
+
+epred_mat_mrp_oos <- t(posterior_epred(fit_bayes_mrp_logshift, newdata = poststrat_df_oos, type = "responde"))%>%
+  as.data.frame()%>%
+  cbind(poststrat_df_oos)%>%
+  mutate(cell_id = 1:nrow(poststrat_df_oos))%>%
+  pivot_longer(-c(colnames(poststrat_df_oos),cell_id), names_to = "iteration", values_to = "posterior_val")%>%
+  mutate(method = "mrp",
+         iteration = parse_number(iteration))
+epred_mat_ebp_oos <- t(posterior_epred(fit_bayes_ebp_logshift, newdata = poststrat_df_oos, type = "responde"))%>%
+  as.data.frame()%>%
+  cbind(poststrat_df_oos)%>%
+  mutate(cell_id = 1:nrow(poststrat_df_oos))%>%
+  pivot_longer(-c(colnames(poststrat_df_oos),cell_id), names_to = "iteration", values_to = "posterior_val")%>%
+  mutate(method = "ebp",
+         iteration = parse_number(iteration))
+
+compare_posterior <- rbind(epred_mat_mrp_oos,epred_mat_ebp_oos)
+
+compare_posterior %>%
+  filter(iteration %in% 1:50)%>% #50 posterior samples
+ggplot(.,aes(x = posterior_val, group = iteration))+
+  geom_density()+
+  facet_grid(depto~method)
+```
+Can we replicate the positive effect described in todays meeting?
+
+```{r}
+compare_posterior %>%
+  group_by(depto,method,edad, area, anoest, etnia)%>%
+  summarise(mean_est = mean(posterior_val))%>%
+  ungroup()%>%
+  pivot_wider(names_from = method, values_from = mean_est)%>%
+  mutate(mrp_minus_ebp = mrp - ebp)%>% 
+  select(mrp_minus_ebp)%>%
+  summary()
+```
+
+What could be causing these differences? We *don't* see this variation for predicting within sample, so it seems likely that this has something to do with the depto random effect. Looking at the sigma terms, it seems like the overall sigma term is about the same scale, but the depto sigma term has a much larger posterior in the non-MRP model. This would explain the variation specifically observed only in the new deptos. 
+
+```{r}
+sigma_ebp <-  as.data.frame(fit_bayes_ebp_logshift,pars = c("sigma","Sigma[depto:(Intercept),(Intercept)]"))%>%
+  mutate(iteration = 1:4000,
+         method = "ebp")
+sigma_mrp <-  as.data.frame(fit_bayes_mrp_logshift,pars = c("sigma","Sigma[depto:(Intercept),(Intercept)]"))%>%
+  mutate(iteration = 1:4000,
+         method = "mrp")
+
+rbind(sigma_ebp,sigma_mrp)%>%
+  pivot_longer(cols = c("sigma","Sigma[depto:(Intercept),(Intercept)]"), 
+               values_to = "posterior_sample",
+               names_to = "parameter")%>%
+  ggplot(.,aes(x = posterior_sample, fill = method))+
+  geom_density(alpha = .4)+
+  facet_wrap(.~parameter, scales = "free")+
+  ggthemes::scale_fill_colorblind()
+
+```
+
+Summary statistics for easier comparison:
+
+```{r}
+sigma_ebp <-  as.data.frame(fit_bayes_ebp_logshift,pars = c("sigma","Sigma[depto:(Intercept),(Intercept)]"))%>%
+  mutate(iteration = 1:4000,
+         method = "ebp")
+sigma_mrp <-  as.data.frame(fit_bayes_mrp_logshift,pars = c("sigma","Sigma[depto:(Intercept),(Intercept)]"))%>%
+  mutate(iteration = 1:4000,
+         method = "mrp")
+
+rbind(sigma_ebp,sigma_mrp)%>%
+  pivot_longer(cols = c("sigma","Sigma[depto:(Intercept),(Intercept)]"), 
+               values_to = "posterior_sample",
+               names_to = "parameter")%>%
+  group_by(parameter, method)%>%
+  summarise(low025=quantile(posterior_sample,.025), median =quantile(posterior_sample,.5), up975=quantile(posterior_sample,.975))
+
+
+```
+
