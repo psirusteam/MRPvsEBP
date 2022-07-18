@@ -80,8 +80,9 @@ fit_mrp <- stan_lmer(
     X2016_urban.coverfraction  ,
   data = encuesta_df_agg,
   weights = n,
-  cores = 7,
-  iter = 400
+  #cores = 7,
+  iter = 2000,
+  verbose = TRUE
 )
 
 

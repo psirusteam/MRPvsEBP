@@ -1,4 +1,6 @@
 library(patchwork)
+library(rstanarm)
+library(ggplot2)
 fit_bayes_EBP <- readRDS("COL/2019/1.Ingreso/Data/fit_bayes_EBP_logshift.rds")
 fit_freq_EBP <-
   readRDS("COL/2019/1.Ingreso/Data/fit_freq_EBP_logshift.rds")
@@ -53,10 +55,11 @@ dt_predit <- data.frame(
   y_pred_freq_MRP = y_pred_freq_MRP
 ) 
 
-
+par(mfrow = c(2,1))
 plot(dt_predit$y_pred_Bayes_EBP, dt_predit$y_pred_freq_EBP)
 abline(b= 1, a = 0, col = "red")
 plot(dt_predit$y_pred_Bayes_MRP, dt_predit$y_pred_freq_MRP)
+abline(b= 1, a = 0, col = "red")
 par(mfrow = c(2,2))
 hist(dt_predit$y_pred_Bayes_EBP)
 hist(dt_predit$y_pred_Bayes_MRP)

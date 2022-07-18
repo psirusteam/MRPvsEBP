@@ -134,6 +134,9 @@ nom_tabs <- c("depto", apply(byAgrega[-1,],MARGIN = 1,paste0, collapse = "_"))
 names(tablas) <- nom_tabs
 
 
+
+
+
 openxlsx::write.xlsx(tablas, 
                      file = "COL/2019/1.Ingreso/Output/tablas_estimados.xlsx", 
                      overwrite = TRUE)

@@ -80,7 +80,7 @@ fit <- stan_lmer(
     X2016_urban.coverfraction  ,
   data = encuesta_df_agg,
   weights = n,
-  iter = 400,
+  iter = 4000,
   verbose = FALSE
 )
 
