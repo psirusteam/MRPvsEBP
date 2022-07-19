@@ -39,5 +39,10 @@ plan(multisession, workers = 2)
 
 Estimacion_dir <- furrr::future_imap(.x = 1:nrow(byAgrega),~f_temp(.x) )
 
+nom_tabs <- c("mpio", apply(byAgrega[-1,],MARGIN = 1,paste0, collapse = "_"))
+names(Estimacion_dir) <- nom_tabs
+
+
 openxlsx::write.xlsx(Estimacion_dir,
                      file = "COL/mpio/1.Ingreso/Data/sampilng_mpio.xlsx")
+    
